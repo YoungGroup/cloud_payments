@@ -1,92 +1,14 @@
-<script src="https://widget.cloudpayments.ru/bundles/cloudpayments"></script>
-<script type="text/javascript">
-    $(function () {
+<form id="payment-form" action="{$form_url}" method="get" target="_top">
 
-        // Register payment function
-        var pay = function () {
-
-            // @formatter:off
-            {foreach $hidden_fields as $name => $value}
-                {if 'amount' == $name}
-                    var {$name} = {$value};
-                {else}
-                    {if $value|is_array}
-                        var {$name} = [];
-                        var single_item = {};
-                        {foreach $value as $php_single_item => $php_item_properties}
-                            single_item = {};
-                            {foreach $php_item_properties as $php_item_property => $php_property_value}
-                                single_item.{$php_item_property} = '{$php_property_value|escape}';
-                            {/foreach}
-                            {$name}.push(single_item);
-                        {/foreach}
-                    {else}
-                        var {$name} = '{$value|escape}';
-                    {/if}
-                {/if}
-            {/foreach}
-            // @formatter:on
-
-            // CloudPayments does not allow to pay zero amount
-            if (0 == amount) {
-                $('#zeroamounterror').toggle();
-                $('#cp-pay-form').toggle();
-                return;
-            }
-
-            // 'data' parameter of the CloudPayments request
-            var data = {
-                name: name,
-                phone: phone,
-                cloudPayments: {
-                    customerReceipt: {
-                        Items: items,
-                        taxationSystem: taxationSystem,
-                        email: email,
-                        phone: phone
-                    }
-                }
-            };
-
-            // 'charge' parameter of the CloudPayments .charge() request
-            var charge = {
-                publicId: publicId,
-                description: description,
-                amount: amount,
-                currency: currency,
-                invoiceId: invoiceId,
-                accountId: accountId,
-                email: email,
-                requireEmail: true,
-                data: data
-            };
-
-            // Debug to the console
-            //console.log(charge);
-
-            var widget = new cp.CloudPayments();
-            widget.charge(charge,
-                successUrl,
-                failUrl
-            );
-        };
-
-        // Assign handler
-        // @formatter:off
-        $('#checkout').click(pay);
-        {if $auto_submit}
-        $('#checkout').click();
-        {/if}
-        // @formatter:on
-    });
-</script>
-<form id="cp-pay-form" action="#" method="get">
-    <div class="wrapper_submit">
-        <input type="button" id="checkout"
-               value="Открыть окно оплаты"
-               class="btn">
-    </div>
+    {if $auto_submit}
+    <i class="icon16 loading"></i>
+    <em>Переход на систему Cloud Payments для оплаты...</em>
+    <br /><br />
+    <script type="text/javascript">
+        setTimeout(function () {
+            document.getElementById('payment-form').submit();
+        }, 3000);
+    </script>
+    {/if}
+    <input type="submit" value="Оплатить заказ с помощью Cloud Payments" />
 </form>
-<div style="display:none;color:red" id="zeroamounterror">
-    <p>Невозможно оплатить заказ с нулевой суммой.</p>
-</div>

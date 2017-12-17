@@ -80,91 +80,119 @@ class cloud_paymentsPayment extends waPayment implements waIPayment
    */
   public function payment($payment_form_data, $order_data, $auto_submit = false)
   {
+    return $this->createPayment($payment_form_data, $order_data, $auto_submit);
+  }
+
+  /**
+   * Create payment in Cloud Payments and redirect user to payment page
+   *
+   * @param $payment_form_data
+   * @param $order_data
+   * @param bool $auto_submit
+   * @return null
+   */
+  private function createPayment($payment_form_data, $order_data, $auto_submit = false)
+  {
     $order = waOrder::factory($order_data);
 
-    /**
-     * Fields required to be sent to CloudPayments
-     */
-    $hidden_fields = array();
-    $hidden_fields['publicId'] = $this->publicId;
-    $hidden_fields['invoiceId'] = sprintf(
-      $this->template,
-      $this->app_id,
-      $this->merchant_id,
-      $order->id
-    );
-    $hidden_fields['description'] = mb_substr(
-      $order->description,
-      0,
-      255,
-      "UTF-8"
-    );
-    $hidden_fields['amount'] = number_format(
-      (float)$order->total,
-      2,
-      '.',
-      ''
-    );
-    $hidden_fields['currency'] = $order->currency;
-    $hidden_fields['name'] = $order->getContact()
-      ->getName();
-    $hidden_fields['email'] = $order->getContact()
-      ->get('email', 'default');
-    $hidden_fields['accountId'] = $hidden_fields['email'];
-    $hidden_fields['phone'] = $order->getContact()
-      ->get('phone', 'default');
-    $hidden_fields['language'] = substr(
-      $order->getContact()
-        ->getLocale(),
-      0,
-      2
-    );
-
-    // Set VAT according to configuration and common sense
-    switch ($this->taxationSystem) {
-      case (self::TS_GENERAL):
-        $vat = $this->vat;
-        break;
-      default:
-        $vat = null;
-        break;
+    if (empty($order_data['description_en'])) {
+      $order['description_en'] = 'Order '.$order['order_id'];
     }
 
-    // Enumerate items for the sake of 54-fz
-    $hidden_fields['items'] = array();
-    foreach ($order->items as $single_item) {
-      $cp_item['label'] = ifset($single_item['name']);
-      $cp_item['price'] = ifset($single_item['price']);
-      $cp_item['quantity'] = ifset($single_item['quantity']);
-      $cp_item['amount'] = ifset($single_item['total']) -
-        (ifset($single_item['total_discount']));
-      $cp_item['vat'] = $vat;
-      $cp_item['ean13'] = ifset($single_item['sku']);
-      $hidden_fields['items'][] = $cp_item;
+    $c = new waContact($order_data['customer_contact_id']);
+
+    if (!($email = $c->get('email', 'default'))) {
+      $email = $this->getDefaultEmail();
     }
-    $hidden_fields['taxationSystem'] = $this->taxationSystem;
 
-    /*print_r($order->items);
-    die;*/
-
-    /**
-     * $transaction_data['order_id'] is mandatory field,
-     *
-     * @see /wa-apps/shop/lib/classes/shopPayment.class.php
-     */
-    $transaction_data = array(
-      'order_id' => $order->id,
+    $args = array(
+        'Amount'      => round($order['amount'] * 100),
+        'Currency'    => $order->currency,
+        'PublicId'    => $this->publicId,
+        'Token'       => $this->apiSecret,
+        'InvoiceId'   => sprintf(
+            $this->template,
+            $this->app_id,
+            $this->merchant_id,
+            $order->id
+        ),
+        'Description' => mb_substr($order->description, 0, 255, "UTF-8"),
+        'Email'       => $email,
     );
-    $hidden_fields['successUrl'] = $this->getAdapter()
-      ->getBackUrl(waAppPayment::URL_SUCCESS, $transaction_data);
-    $hidden_fields['failUrl'] = $this->getAdapter()
-      ->getBackUrl(waAppPayment::URL_FAIL, $transaction_data);
+
+    $payment_url = 'https://api.cloudpayments.ru/payments/tokens/auth'; // two-steps
+
+    $this->sendRequest($payment_url, $args);
+
+    // todo get payment url
+    if (!$this->payment_url) {
+      return null;
+    }
 
     $view = wa()->getView();
-    $view->assign('hidden_fields', $hidden_fields);
+
+    $view->assign('plugin', $this);
+    $view->assign('form_url', $this->payment_url);
     $view->assign('auto_submit', $auto_submit);
 
     return $view->fetch($this->path.'/templates/payment.html');
+  }
+
+  /**
+   * Main method. Call API with params
+   *
+   * @param string $api_url API Url
+   * @param array $args API params
+   *
+   * @return mixed
+   * @throws HttpException
+   * @throws waException
+   */
+  private function sendRequest($api_url, $args)
+  {
+    $this->error = '';
+    //todo add string $args support
+    //$proxy = 'http://192.168.5.22:8080';
+    //$proxyAuth = '';
+    if (is_array($args)) {
+      $args = json_encode($args);
+    }
+    //Debug::trace($args);
+    if ($curl = curl_init()) {
+      curl_setopt($curl, CURLOPT_URL, $api_url);
+      curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
+      curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+      curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+      curl_setopt($curl, CURLOPT_POST, true);
+      curl_setopt($curl, CURLOPT_POSTFIELDS, $args);
+      curl_setopt($curl, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
+      $out = curl_exec($curl);
+
+      $info = curl_getinfo($curl);
+
+      $this->response = $out;
+      $json = json_decode($out);
+
+      if ($json) {
+        if (@$json->ErrorCode !== '0') {
+          $this->error = @$json->Details;
+        } else {
+          $this->payment_url = @$json->PaymentURL;
+          $this->payment_id = @$json->PaymentId;
+          $this->status = @$json->Status;
+        }
+      }
+      curl_close($curl);
+
+      if ($this->testmode || $this->send_log) {
+        waLog::log('Sent to: '.$api_url."\n".$args, 'payment/tinkoffSend.log');
+        waLog::log('Received: http_code: '.ifset($info['http_code']).'; response: '.$out, 'payment/tinkoffSend.log');
+      }
+      return $json ? $json : $out;
+
+    } else {
+      throw new waException('Cannot create connection to '.$api_url.' with args '.$args);
+    }
   }
 
   /**
