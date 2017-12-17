@@ -1,7 +1,8 @@
 # Плагин CloudPayments
-Плагин платёжной системы CloudPayments для [Вебасист](https://www.webasyst.com/) и магазина Shop Script.
+Плагин двухстадийных платежей через платёжную систему CloudPayments для [Вебасист](https://www.webasyst.com/) и магазина Shop Script.
 
-Домашняя страница: https://github.com/kettari/cloud_payments
+Домашняя страница: https://github.com/YoungGroup/cloud_payments
+[Старая версия](https://github.com/kettari/cloud_payments)
 
 ## Описание
 
@@ -10,19 +11,20 @@
 * Интеграция платёжной системы с помощью виджета, без дополнительного перехода на другой сайт;
 * Соответствие 54-ФЗ: отправка приобретённых позиций в чеке;
 * Настройка вариантов налогообложения;
-* Одностадийная схема списания денежных средств.
+* Двухстадийная схема списания денежных средств.
+* *В разработке*: выбор между двух- и одностадийным вариантом оплаты
 
 ### Налогообложение
 Плагин не учитывает настройку налогообложения по отдельным товарам.
 
 ## Установка
-Плагин можно установить с помощью Инсталера со [страницы плагина](https://www.webasyst.ru/store/plugin/payment/cloud_payments/) либо вручную из [репозитория](https://github.com/kettari/cloud_payments).
+Пока плагин можно установить только вручную из [репозитория](https://github.com/YoungGroup/cloud_payments).
 
 ### Автоматическая установка
 Автоматическая установка описана в [инструкции](https://support.webasyst.ru/8620/webasyst-store-install-product/) к системе Вебасист.
 
 ### Ручная установка
-* Скачайте последнюю версию плагина из [репозитория](https://github.com/kettari/cloud_payments/releases).
+* Скачайте последнюю версию плагина из [репозитория](https://github.com/YoungGroup/cloud_payments).
 * Распакуйте архив на своём сервере в папку `\wa-plugins\payment`
 > Например, если магазин на вашем сервере установлен в папке `\var\www\shop.yourdomain.com\public`, 
 > то плагин должен быть распакован в папку `\var\www\shop.yourdomain.com\public\wa-plugins\payment`
@@ -56,4 +58,4 @@
 > Например, URL для уведомлений может выглядеть примерно так: `http://www.your-domain.com/payments.php/cloud_payments/`, но это не точно.
 
 # Контакты
-Вопросы и предложения пишите в [issues на гитхабе](https://github.com/kettari/cloud_payments/issues).
+Вопросы и предложения пишите в [issues на гитхабе](https://github.com/YoungGroup/cloud_payments/pulls).
